@@ -14,11 +14,11 @@
 		<servlet-class>com.vaadin.server.VaadinServlet</servlet-class>
 		<init-param>
 			<param-name>widgetset</param-name>
-			<param-value>org.vaadin.artur.testgenerator.TestgeneratorWidgetset</param-value>
+			<param-value>org.vaadin.artur.testcodegenerator.TestCodeGeneratorWidgetset</param-value>
 		</init-param>
 		<init-param>
 			<param-name>UI</param-name>
-			<param-value>org.vaadin.artur.testgenerator.demo.TestGeneratorDemo</param-value>
+			<param-value>org.vaadin.artur.testcodegenerator.demo.TestCodeGeneratorDemo</param-value>
 		</init-param>
 	</servlet>
 	<servlet>
@@ -26,11 +26,11 @@
 		<servlet-class>com.vaadin.server.VaadinServlet</servlet-class>
 		<init-param>
 			<param-name>widgetset</param-name>
-			<param-value>org.vaadin.artur.testgenerator.TestgeneratorWidgetset</param-value>
+			<param-value>org.vaadin.artur.testcodegenerator.TestCodeGeneratorWidgetset</param-value>
 		</init-param>
 		<init-param>
 			<param-name>UI</param-name>
-			<param-value>org.vaadin.artur.testgenerator.demo.TestTestGeneratorDemo</param-value>
+			<param-value>org.vaadin.artur.testcodegenerator.demo.TestTestGeneratorDemo</param-value>
 		</init-param>
 	</servlet>
 	<servlet-mapping>

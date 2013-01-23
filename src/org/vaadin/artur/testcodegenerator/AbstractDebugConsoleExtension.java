@@ -1,4 +1,4 @@
-package org.vaadin.artur.testgenerator;
+package org.vaadin.artur.testcodegenerator;
 
 import com.vaadin.server.AbstractExtension;
 import com.vaadin.ui.UI;

@@ -1,8 +1,8 @@
-package org.vaadin.artur.testgenerator.client;
+package org.vaadin.artur.testcodegenerator.client;
 
-import org.vaadin.artur.testgenerator.TestGeneratorExtension;
-import org.vaadin.artur.testgenerator.shared.TestGeneratorClientRpc;
-import org.vaadin.artur.testgenerator.shared.TestGeneratorServerRpc;
+import org.vaadin.artur.testcodegenerator.TestCodeGenerator;
+import org.vaadin.artur.testcodegenerator.shared.TestCodeGeneratorClientRpc;
+import org.vaadin.artur.testcodegenerator.shared.TestCodeGeneratorServerRpc;
 
 import com.google.gwt.event.dom.client.BlurEvent;
 import com.google.gwt.event.dom.client.ClickEvent;
@@ -18,15 +18,15 @@ import com.vaadin.client.ui.VWindow;
 import com.vaadin.shared.Position;
 import com.vaadin.shared.ui.Connect;
 
-@Connect(TestGeneratorExtension.class)
-public class TestGeneratorConnector extends
+@Connect(TestCodeGenerator.class)
+public class TestCodeGeneratorConnector extends
         AbstractDebugConsoleExtensionConnector {
     VNotification waitNotification = null;
 
     @Override
     protected void init() {
         super.init();
-        registerRpc(TestGeneratorClientRpc.class, new TestGeneratorClientRpc() {
+        registerRpc(TestCodeGeneratorClientRpc.class, new TestCodeGeneratorClientRpc() {
 
             @Override
             public void sendTest(String test) {
@@ -82,7 +82,7 @@ public class TestGeneratorConnector extends
         debugConsoleButton.addClickHandler(new ClickHandler() {
             @Override
             public void onClick(ClickEvent arg0) {
-                getRpcProxy(TestGeneratorServerRpc.class).generateTest();
+                getRpcProxy(TestCodeGeneratorServerRpc.class).generateTest();
                 waitNotification = new VNotification() {
                     @Override
                     protected ApplicationConnection getApplicationConnection() {

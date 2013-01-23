@@ -1,4 +1,4 @@
-package org.vaadin.artur.testgenerator;
+package org.vaadin.artur.testcodegenerator;
 
 import java.beans.BeanInfo;
 import java.beans.Introspector;

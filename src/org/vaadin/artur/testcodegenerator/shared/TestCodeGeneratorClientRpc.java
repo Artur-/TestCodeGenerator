@@ -13,11 +13,11 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package org.vaadin.artur.testgenerator.shared;
+package org.vaadin.artur.testcodegenerator.shared;
 
 import com.vaadin.shared.communication.ClientRpc;
 
-public interface TestGeneratorClientRpc extends ClientRpc {
+public interface TestCodeGeneratorClientRpc extends ClientRpc {
 
     public void sendTest(String test);
 }

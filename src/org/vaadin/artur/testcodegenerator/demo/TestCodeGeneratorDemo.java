@@ -1,6 +1,6 @@
-package org.vaadin.artur.testgenerator.demo;
+package org.vaadin.artur.testcodegenerator.demo;
 
-import org.vaadin.artur.testgenerator.TestGeneratorExtension;
+import org.vaadin.artur.testcodegenerator.TestCodeGenerator;
 
 import com.vaadin.data.util.BeanItemContainer;
 import com.vaadin.server.VaadinRequest;
@@ -9,7 +9,7 @@ import com.vaadin.ui.Table;
 import com.vaadin.ui.Table.ColumnGenerator;
 import com.vaadin.ui.UI;
 
-public class TestGeneratorDemo extends UI {
+public class TestCodeGeneratorDemo extends UI {
     public static class Person {
         private String first, last;
         private int age;
@@ -50,7 +50,7 @@ public class TestGeneratorDemo extends UI {
             vd.getComboBox_1().addItem("Item " + i);
         }
 
-        BeanItemContainer<Person> beanItemContainer = new BeanItemContainer<TestGeneratorDemo.Person>(
+        BeanItemContainer<Person> beanItemContainer = new BeanItemContainer<TestCodeGeneratorDemo.Person>(
                 Person.class);
         beanItemContainer.addBean(new Person("John", "Doe", 67, true));
         beanItemContainer.addBean(new Person("Homer", "Simpson", 44, true));
@@ -78,7 +78,7 @@ public class TestGeneratorDemo extends UI {
         });
         vd.getTable().addItem(new Object[] { "foo", 42 }, "aaa");
         vd.getTable().addItem(new Object[] { "bar", -3 }, "bbb");
-        new TestGeneratorExtension().extend(this);
+        new TestCodeGenerator().extend(this);
     }
 
 }

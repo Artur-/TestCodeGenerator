@@ -1,0 +1,8 @@
+Manifest-Version: 1.0
+Implementation-Title: Test Code Generator
+Implementation-Version: 0.2.2
+Vaadin-Package-Version: 1
+Class-Path: 
+Vaadin-Widgetsets: org.vaadin.artur.testcodegenerator.TestCodeGenerato
+ rWidgetset
+

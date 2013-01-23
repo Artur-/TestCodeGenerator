@@ -1,4 +1,4 @@
-package org.vaadin.artur.testgenerator.client;
+package org.vaadin.artur.testcodegenerator.client;
 
 import com.google.gwt.user.client.ui.FlowPanel;
 import com.google.gwt.user.client.ui.HorizontalPanel;
