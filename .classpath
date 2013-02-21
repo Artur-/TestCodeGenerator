@@ -15,5 +15,6 @@
 			<attribute name="org.eclipse.jst.component.dependency" value="/WEB-INF/lib"/>
 		</attributes>
 	</classpathentry>
+	<classpathentry kind="con" path="org.apache.ivyde.eclipse.cpcontainer.IVYDE_CONTAINER/?project=TestCodeGenerator&amp;ivyXmlPath=ivy.xml&amp;confs=test&amp;ivySettingsPath=%24%7Bworkspace_loc%3ATestCodeGenerator%2Fivysettings.xml%7D&amp;loadSettingsOnDemand=false&amp;propertyFiles="/>
 	<classpathentry kind="output" path="build/classes"/>
 </classpath>

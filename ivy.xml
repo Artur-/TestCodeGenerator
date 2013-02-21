@@ -12,6 +12,7 @@
 		<!-- A configuration only needed when compiling the widget set. Should 
 			not be deployed to the server -->
 		<conf name="widgetset-compile" />
+		<conf name="test" />
 	</configurations>
 	<dependencies>
 		<!-- The core server part of Vaadin -->
@@ -31,6 +32,8 @@
 		<!-- Compiler for custom widget sets. Should not be deployed -->
 		<dependency org="com.vaadin" name="vaadin-client-compiler"
 			rev="&vaadin.version;" conf="widgetset-compile->default" />
+
+		<dependency org="junit" name="junit" rev="4.11" conf="test -> default" />
 	</dependencies>
 </ivy-module>
     

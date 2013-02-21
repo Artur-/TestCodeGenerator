@@ -319,10 +319,6 @@ public class Writer {
         return "MyCustomComponent";
     }
 
-    private String lowerFirst(String str) {
-        return str.substring(0, 1).toLowerCase() + str.substring(1);
-    }
-
     private void writeComponentChildren(StringBuilder builder, Component parent) {
         if (!(parent instanceof HasComponents)) {
             return;
@@ -762,7 +758,7 @@ public class Writer {
         }
 
         if (!componentToIdentifier.containsKey(c)) {
-            String cid = lowerFirst(c.getClass().getSimpleName())
+            String cid = WriterUtil.lowerFirst(c.getClass().getSimpleName())
                     + nextComponentId++;
             componentToIdentifier.put(c, cid);
         }
