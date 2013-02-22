@@ -17,6 +17,13 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.vaadin.artur.testcodegenerator.definition._Annotation;
+import org.vaadin.artur.testcodegenerator.definition._Class;
+import org.vaadin.artur.testcodegenerator.definition._JavaClassFile;
+import org.vaadin.artur.testcodegenerator.definition._Method;
+import org.vaadin.artur.testcodegenerator.definition._Type;
+import org.vaadin.artur.testcodegenerator.definition._VarargType;
+
 import com.vaadin.data.Container;
 import com.vaadin.data.Container.Indexed;
 import com.vaadin.data.Item;
@@ -54,57 +61,30 @@ public class Writer {
     private static final Method SET_HEIGHT_STRING_METHOD = ReflectTools
             .findMethod(Sizeable.class, "setHeight", String.class);
 
-    int nextComponentId = 1;
-    private StringBuilder mainBuilder1 = new StringBuilder();
-    private boolean hasInlineSet = false;
-    private boolean hasCustomComponentClass = false;
-    private StringBuilder methodBuilder1 = new StringBuilder();
-    private HashSet<Class<?>> imports = new HashSet<Class<?>>();
-    private StringBuilder headerBuilder1 = new StringBuilder();
-    private int dataSourceIndex = 1;
-    private Map<Component, String> componentToIdentifier = new HashMap<Component, String>();
+    private _JavaClassFile javaClassFile;
 
     public Writer() {
     }
 
     public String createUIClass(UI ui) {
-        writeHeader(ui);
-        requireImport(String.class);
-        requireImport(Integer.class);
-        requireImport(Object.class);
-        String uiId = writeComponent(mainBuilder1, ui.getContent());
-        writeAttachChild(mainBuilder1, ui, ui.getContent(), uiId);
+        javaClassFile = new _JavaClassFile();
+        javaClassFile.setPackageName(ui.getClass().getPackage().getName());
 
-        // End of init
-        mainBuilder1.append("}");
+        _Class testClass = new _Class("Test" + ui.getClass().getSimpleName(),
+                UI.class);
+        testClass.setModifiers("public");
+        _Method initMethod = new _Method("init");
+        initMethod.setModifiers("protected");
+        initMethod.setReturnType(Void.class);
+        initMethod.addParameter(VaadinRequest.class, "request");
+        testClass.addMethod(initMethod);
 
-        return headerBuilder1.toString() + mainBuilder1.toString()
-                + methodBuilder1.toString() + "}";
+        javaClassFile.setMainClass(testClass);
 
-    }
+        String uiId = writeComponent(initMethod, ui.getContent());
+        writeAttachChild(initMethod, ui, ui.getContent(), uiId);
 
-    public void writeHeader(UI ui) {
-        headerBuilder1.append("package " + ui.getClass().getPackage().getName()
-                + ";");
-        // builder.append("\n");
-        requireImport(Component.class);
-        requireImport(HasComponents.class);
-
-        mainBuilder1.append("public class Test" + ui.getClass().getSimpleName()
-                + " extends " + UI.class.getName() + " {");
-        mainBuilder1.append("public void init(" + VaadinRequest.class.getName()
-                + " request) {");
-
-    }
-
-    private void requireImport(Class<?> class1) {
-        if (imports.contains(class1)) {
-            return;
-        }
-
-        imports.add(class1);
-        headerBuilder1.append("import " + class1.getCanonicalName() + ";");
-
+        return javaClassFile.getSource();
     }
 
     public Class<? extends Component> getVaadinComponentClass(
@@ -117,8 +97,8 @@ public class Writer {
         }
     }
 
-    public boolean writeAttachChild(StringBuilder builder,
-            HasComponents parent, Component child, String childId) {
+    public boolean writeAttachChild(_Method m, HasComponents parent,
+            Component child, String childId) {
         if (!isSupportedParentType(parent)) {
             getLogger().warning(
                     "Don't know how to attach component " + childId
@@ -127,25 +107,22 @@ public class Writer {
                             + ". Leaving out from test.");
             return false;
         }
-        String parentReference = getOrCreateComponentIdentifier(parent);
+        String parentReference = javaClassFile
+                .getOrCreateComponentIdentifier(parent);
 
         if (parent instanceof AbsoluteLayout) {
             ComponentPosition pos = ((AbsoluteLayout) parent)
                     .getPosition(child);
-            builder.append(parentReference + ".addComponent(" + childId
-                    + ", \"" + pos.getCSSString() + "\");");
+            m.addCode(parentReference + ".addComponent(" + childId + ", \""
+                    + pos.getCSSString() + "\");");
         } else if (parent instanceof SingleComponentContainer) {
-            requireImport(SingleComponentContainer.class);
-            builder.append(parentReference + ".setContent(" + childId + ");");
+            m.addCode(parentReference + ".setContent(" + childId + ");");
             return true;
         } else if (parent instanceof CustomComponent) {
-            requireImport(CustomComponent.class);
-            builder.append(parentReference + ".setCompositionRoot(" + childId
-                    + ");");
+            m.addCode(parentReference + ".setCompositionRoot(" + childId + ");");
             return true;
         } else if (parent instanceof ComponentContainer) {
-            requireImport(ComponentContainer.class);
-            builder.append(parentReference + ".addComponent(" + childId + ");");
+            m.addCode(parentReference + ".addComponent(" + childId + ");");
             return true;
         } else if (parent instanceof Table) {
             // Attached through data source
@@ -172,117 +149,20 @@ public class Writer {
         return false;
     }
 
-    public String writeComponent(StringBuilder builder, Component c) {
+    public String writeComponent(_Method m, Component c) {
         Class<? extends Component> type = getVaadinComponentClass(c.getClass());
-        String typeName = type.getName();
+        String typeName = formatClassName(type);
         if (c instanceof CustomComponent) {
             typeName = writeCustomComponentClass();
         }
-        String cid = getOrCreateComponentIdentifier(c);
+        String cid = javaClassFile.getOrCreateComponentIdentifier(c);
 
-        builder.append(";");
-        builder.append(typeName + " " + cid + " = new " + typeName + "();");
-        writeComponentProperties(builder, c);
-        writeComponentChildren(builder, c);
-        writeComponentChildProperties(builder, c);
+        m.addCode(";");
+        m.addCode(typeName + " " + cid + " = new " + typeName + "();");
+        writeComponentProperties(m, c);
+        writeComponentChildren(m, c);
+        writeComponentChildProperties(m, c);
         return cid;
-
-    }
-
-    private String createDataSource(Table table, Container.Indexed dataSource) {
-        String dataSourceName = "DataSource" + dataSourceIndex++;
-        int maxItems = 50;
-
-        // Properties
-        requireImport(IndexedContainer.class);
-        methodBuilder1.append("public IndexedContainer get" + dataSourceName
-                + "() {");
-        methodBuilder1.append("IndexedContainer ic = new IndexedContainer();");
-        List<Object> visibleIds = new ArrayList<Object>();
-        Set<Object> generatedColumns = new HashSet<Object>();
-
-        if (table != null) {
-            for (Object id : table.getVisibleColumns()) {
-                visibleIds.add(id);
-            }
-            generatedColumns.addAll(getGeneratedColumnIds(table));
-        } else {
-            visibleIds.addAll(dataSource.getContainerPropertyIds());
-        }
-
-        for (Object propertyId : visibleIds) {
-            addContainerProperty(methodBuilder1, table, dataSource, propertyId);
-        }
-
-        methodBuilder1.append("Item item;");
-        requireImport(Item.class);
-        int itemIndex = 0;
-        for (Object itemId : dataSource.getItemIds()) {
-            methodBuilder1.append("item = ic.addItem("
-                    + formatObjectForJava(itemId) + ");");
-            for (Object columnId : visibleIds) {
-                Object value;
-                if (generatedColumns.contains(columnId)) {
-                    value = table.getColumnGenerator(columnId).generateCell(
-                            table, itemId, columnId);
-                    if (value instanceof Component) {
-                        writeComponent(methodBuilder1, (Component) value);
-                    }
-                } else {
-                    value = dataSource.getContainerProperty(itemId, columnId)
-                            .getValue();
-                }
-                methodBuilder1.append("item.getItemProperty("
-                        + formatObjectForJava(columnId) + ").setValue("
-                        + formatObjectForJava(value) + ");");
-
-            }
-
-            if (itemIndex++ > maxItems) {
-                break;
-            }
-        }
-        methodBuilder1.append("return ic;");
-        methodBuilder1.append("}");
-
-        return "get" + dataSourceName + "()";
-    }
-
-    private Collection<? extends Object> getGeneratedColumnIds(Table table) {
-        ArrayList<Object> ids = new ArrayList<Object>();
-        for (Object id : table.getVisibleColumns()) {
-            ColumnGenerator generator = table.getColumnGenerator(id);
-            if (generator != null) {
-                ids.add(id);
-            }
-        }
-        return ids;
-
-    }
-
-    private void addContainerProperty(StringBuilder builder, Table table,
-            Container.Indexed dataSource, Object propertyId) {
-        builder.append("ic.addContainerProperty(");
-        builder.append(formatObjectForJava(propertyId));
-        builder.append(", ");
-        Class<?> type = dataSource.getType(propertyId);
-        if (type == null) {
-            if (table != null) {
-                ColumnGenerator colGen = table.getColumnGenerator(propertyId);
-                if (colGen != null && table.firstItemId() != null) {
-                    Object gen = colGen.generateCell(table,
-                            table.firstItemId(), propertyId);
-                    if (gen instanceof Component) {
-                        type = Component.class;
-                    }
-                }
-            }
-        }
-        if (type == null) {
-            type = Object.class;
-        }
-        builder.append(formatObjectForJava(getBoxedType(type)));
-        builder.append(", null);");
 
     }
 
@@ -308,18 +188,25 @@ public class Writer {
     }
 
     private String writeCustomComponentClass() {
-        if (!hasCustomComponentClass) {
-            hasCustomComponentClass = true;
-            methodBuilder1
-                    .append("private static class MyCustomComponent extends CustomComponent {");
-            methodBuilder1
-                    .append("public void setCompositionRoot(Component c) {super.setCompositionRoot(c);}");
-            methodBuilder1.append("}");
+        if (!javaClassFile.getMainClass().hasClass("MyCustomComponent")) {
+            _Class c = new _Class("MyCustomComponent", CustomComponent.class);
+            c.setModifiers("private", "static");
+            _Method constructor = new _Method("MyCustomComponent");
+            constructor.setModifiers("public");
+            _Method m = new _Method("setCompositionRoot");
+            m.addParameter(Component.class, "c");
+            m.addCode("super.setCompositionRoot(c);");
+            m.setReturnType(Void.class);
+            m.setModifiers("public");
+
+            c.addMethod(constructor);
+            c.addMethod(m);
+            javaClassFile.getMainClass().addClass(c);
         }
         return "MyCustomComponent";
     }
 
-    private void writeComponentChildren(StringBuilder builder, Component parent) {
+    private void writeComponentChildren(_Method m, Component parent) {
         if (!(parent instanceof HasComponents)) {
             return;
         }
@@ -336,13 +223,13 @@ public class Writer {
             return;
         }
         for (Component child : hcParent) {
-            String childId = writeComponent(builder, child);
-            writeAttachChild(builder, hcParent, child, childId);
+            String childId = writeComponent(m, child);
+            writeAttachChild(m, hcParent, child, childId);
         }
 
     }
 
-    private void writeComponentProperties(StringBuilder builder, Component c) {
+    private void writeComponentProperties(_Method m, Component c) {
         Class<? extends Component> refType = getVaadinComponentClass(c
                 .getClass());
         try {
@@ -365,10 +252,10 @@ public class Writer {
                 Object refValue = readMethod.invoke(ref);
                 Object value = readMethod.invoke(c);
                 if (!equals(value, refValue)) {
-                    writePropertySetter(builder, c, writeMethod, value);
+                    writePropertySetter(m, c, writeMethod, value);
                 }
             }
-            writeSizeProperties(builder, ref, c);
+            writeSizeProperties(m, ref, c);
         } catch (Exception e) {
             getLogger().log(
                     Level.SEVERE,
@@ -402,8 +289,7 @@ public class Writer {
         return propertyDescriptors;
     }
 
-    private void writeComponentChildProperties(StringBuilder builder,
-            Component p) {
+    private void writeComponentChildProperties(_Method m, Component p) {
         if (!(p instanceof HasComponents)) {
             return;
         }
@@ -451,10 +337,10 @@ public class Writer {
                     Object value;
                     if (twoParamSetter) {
                         value = getter.invoke(p, child);
-                        writePropertySetter(builder, p, setter, child, value);
+                        writePropertySetter(m, p, setter, child, value);
                     } else {
                         value = getter.invoke(p);
-                        writePropertySetter(builder, p, setter, value);
+                        writePropertySetter(m, p, setter, value);
 
                     }
                 }
@@ -463,10 +349,10 @@ public class Writer {
                 e.printStackTrace();
             }
         }
-        writeTabMethods(builder, p);
+        writeTabMethods(m, p);
     }
 
-    private void writeTabMethods(StringBuilder builder, Component p) {
+    private void writeTabMethods(_Method m, Component p) {
         if (!(p instanceof TabSheet)) {
             return;
         }
@@ -490,10 +376,14 @@ public class Writer {
                     Object value = readMethod.invoke(tab);
                     Object ref = readMethod.invoke(refTab);
                     if (!equals(value, ref)) {
-                        builder.append(getOrCreateComponentIdentifier(p)
+                        m.addCode(javaClassFile
+                                .getOrCreateComponentIdentifier(p)
                                 + ".getTab("
-                                + getOrCreateComponentIdentifier(child) + ")."
-                                + writeMethod.getName() + "("
+                                + javaClassFile
+                                        .getOrCreateComponentIdentifier(child)
+                                + ")."
+                                + writeMethod.getName()
+                                + "("
                                 + formatObjectForJava(value) + ");");
                     }
 
@@ -506,26 +396,25 @@ public class Writer {
 
     }
 
-    private void writeSizeProperties(StringBuilder builder, Sizeable ref,
-            Component c) {
+    private void writeSizeProperties(_Method m, Sizeable ref, Component c) {
 
         if (ref.getHeight() != c.getHeight()
                 || ref.getHeightUnits() != c.getHeightUnits()) {
             if (c.getHeight() < 0) {
-                writePropertySetter(builder, c, SET_HEIGHT_STRING_METHOD,
+                writePropertySetter(m, c, SET_HEIGHT_STRING_METHOD,
                         new Object[] { null });
             } else {
-                writePropertySetter(builder, c, SET_HEIGHT_METHOD,
-                        c.getHeight(), c.getHeightUnits());
+                writePropertySetter(m, c, SET_HEIGHT_METHOD, c.getHeight(),
+                        c.getHeightUnits());
             }
         }
         if (ref.getWidth() != c.getWidth()
                 || ref.getWidthUnits() != c.getWidthUnits()) {
             if (c.getWidth() < 0) {
-                writePropertySetter(builder, c, SET_WIDTH_STRING_METHOD,
+                writePropertySetter(m, c, SET_WIDTH_STRING_METHOD,
                         new Object[] { null });
             } else {
-                writePropertySetter(builder, c, SET_WIDTH_METHOD, c.getWidth(),
+                writePropertySetter(m, c, SET_WIDTH_METHOD, c.getWidth(),
                         c.getWidthUnits());
             }
         }
@@ -565,29 +454,29 @@ public class Writer {
         return value.equals(refValue);
     }
 
-    private void writePropertySetter(StringBuilder builder, Component c,
+    private void writePropertySetter(_Method m, Component c,
             Method writeMethod, Object... values) {
-        String cid = getOrCreateComponentIdentifier(c);
+        String cid = javaClassFile.getOrCreateComponentIdentifier(c);
 
-        builder.append(cid + "." + writeMethod.getName() + "(");
+        m.addCode(cid + "." + writeMethod.getName() + "(");
         if (values == null) {
-            builder.append("null");
+            m.addCode("null");
         } else if (c instanceof Table
                 && "setContainerDataSource".equals(writeMethod.getName())
                 && ((Table) c).getContainerDataSource() instanceof Indexed) {
             Table t = (Table) c;
-            builder.append(createDataSource(t,
-                    (Indexed) t.getContainerDataSource()));
+            _Method dataSourceMethod = createDataSource(t,
+                    (Indexed) t.getContainerDataSource());
+            m.addCode(dataSourceMethod.getName() + "()");
         } else {
             for (int i = 0; i < values.length; i++) {
                 if (i != 0) {
-                    builder.append(", ");
+                    m.addCode(", ");
                 }
-                builder.append(formatObjectForJava(values[i]));
+                m.addCode(formatObjectForJava(values[i]));
             }
         }
-        builder.append(");");
-
+        m.addCode(");");
     }
 
     private String formatObjectForJava(Object value) {
@@ -602,7 +491,6 @@ public class Writer {
             return ((Boolean) value).toString();
         }
         if (value instanceof Date) {
-            requireImport(Date.class);
             return "new Date(" + formatObjectForJava(((Date) value).getTime())
                     + ")";
         }
@@ -624,7 +512,6 @@ public class Writer {
                     + "," + info.hasBottom() + "," + info.hasLeft() + ")";
         }
         if (value instanceof Unit) {
-            requireImport(Unit.class);
             return "Unit." + ((Unit) value).name();
         }
         if (value instanceof Enum) {
@@ -639,7 +526,8 @@ public class Writer {
             return value.toString();
         }
         if (value instanceof Container.Indexed) {
-            return createDataSource(null, (Indexed) value);
+            return createDataSource(null, (Indexed) value).getName() + "()";
+
         }
         if (value instanceof Class) {
             return formatClassName((Class) value) + ".class";
@@ -663,15 +551,13 @@ public class Writer {
         }
         if (value instanceof Component) {
             Component c = (Component) value;
-            return getOrCreateComponentIdentifier(c);
+            return javaClassFile.getOrCreateComponentIdentifier(c);
         }
         if (value instanceof ReadOnlyRowId) {
-            requireImport(ReadOnlyRowId.class);
             return "new ReadOnlyRowId(" + ((ReadOnlyRowId) value).getRowNum()
                     + ")";
         }
         if (value instanceof RowId) {
-            requireImport(RowId.class);
             return "new RowId(" + formatObjectForJava(((RowId) value).getId())
                     + ")";
         }
@@ -679,7 +565,6 @@ public class Writer {
     }
 
     private String formatAlignment(Alignment value) {
-        requireImport(Alignment.class);
         String cls = formatClassName(value.getClass());
         if (Alignment.TOP_RIGHT.equals(value)) {
             return cls + ".TOP_RIGHT";
@@ -713,18 +598,15 @@ public class Writer {
     }
 
     private String formatClassName(Class cls) {
-        if (isImported(cls)) {
-            return cls.getSimpleName();
-        } else if (isImported(cls.getEnclosingClass())) {
-            return cls.getCanonicalName().replace(
-                    cls.getEnclosingClass().getName(),
-                    cls.getEnclosingClass().getSimpleName());
-        }
-        return cls.getCanonicalName();
-    }
-
-    private boolean isImported(Class<? extends Object> cls) {
-        return imports.contains(cls);
+        javaClassFile.addImport(cls);
+        // if (javaClassFile.isImported(cls)) {
+        return cls.getSimpleName();
+        // } else if (javaClassFile.isImported(cls.getEnclosingClass())) {
+        // return cls.getCanonicalName().replace(
+        // cls.getEnclosingClass().getName(),
+        // cls.getEnclosingClass().getSimpleName());
+        // }
+        // return cls.getCanonicalName();
     }
 
     Map<String, String> arrayTypes = new HashMap<String, String>();
@@ -752,38 +634,133 @@ public class Writer {
         return ret;
     }
 
-    private String getOrCreateComponentIdentifier(Component c) {
-        if (c instanceof UI) {
-            return "this";
-        }
-
-        if (!componentToIdentifier.containsKey(c)) {
-            String cid = WriterUtil.lowerFirst(c.getClass().getSimpleName())
-                    + nextComponentId++;
-            componentToIdentifier.put(c, cid);
-        }
-
-        return componentToIdentifier.get(c);
-    }
-
     private void writeInlineSet() {
-        if (hasInlineSet) {
+        if (javaClassFile.getMainClass().hasClass("InlineSet")) {
             return;
         }
-        requireImport(HashSet.class);
-        hasInlineSet = true;
-        methodBuilder1
-                .append("public static class InlineSet extends HashSet<Object> {");
-        methodBuilder1.append("public InlineSet(Object... contents) {");
-        methodBuilder1.append("for (Object o : contents) {");
-        methodBuilder1.append("add(o);");
-        methodBuilder1.append("}");
-        methodBuilder1.append("}");
-        methodBuilder1.append("}");
+        // javaClassFile.addImport(HashSet.class);
+
+        _Class inlineSet = new _Class("InlineSet", new _Type(HashSet.class,
+                Object.class));
+        inlineSet.setModifiers("public", "static");
+
+        _Method m = new _Method("InlineSet");
+        m.setModifiers("public");
+        m.setReturnType((_Type) null);
+        m.addParameter(new _VarargType(Object.class), "contents");
+        m.addCode("for (Object o : contents) {");
+        m.addCode("add(o);");
+        m.addCode("}");
+
+        inlineSet.addMethod(m);
+        javaClassFile.getMainClass().addClass(inlineSet);
     }
 
     private static Logger getLogger() {
         return Logger.getLogger(Writer.class.getName());
+    }
+
+    private _Method createDataSource(Table table, Container.Indexed dataSource) {
+        String dataSourceName = "DataSource"
+                + javaClassFile.getNewDataSourceIndex();
+        int maxItems = 50;
+
+        // Properties
+
+        // javaClassFile.addImport(IndexedContainer.class);
+
+        _Method getDataSourceMethod = new _Method("get" + dataSourceName);
+        _Annotation a = new _Annotation(SuppressWarnings.class, "unchecked");
+        getDataSourceMethod.addAnnotation(a);
+        getDataSourceMethod.setReturnType(IndexedContainer.class);
+        getDataSourceMethod
+                .addCode("IndexedContainer ic = new IndexedContainer();");
+
+        List<Object> visibleIds = new ArrayList<Object>();
+        Set<Object> generatedColumns = new HashSet<Object>();
+
+        if (table != null) {
+            for (Object id : table.getVisibleColumns()) {
+                visibleIds.add(id);
+            }
+            generatedColumns.addAll(getGeneratedColumnIds(table));
+        } else {
+            visibleIds.addAll(dataSource.getContainerPropertyIds());
+        }
+
+        for (Object propertyId : visibleIds) {
+            addContainerProperty(getDataSourceMethod, table, dataSource,
+                    propertyId);
+        }
+
+        getDataSourceMethod.addCode("Item item;");
+        javaClassFile.addImport(Item.class);
+        int itemIndex = 0;
+        for (Object itemId : dataSource.getItemIds()) {
+            getDataSourceMethod.addCode("item = ic.addItem("
+                    + formatObjectForJava(itemId) + ");");
+            for (Object columnId : visibleIds) {
+                Object value;
+                if (generatedColumns.contains(columnId)) {
+                    value = table.getColumnGenerator(columnId).generateCell(
+                            table, itemId, columnId);
+                    if (value instanceof Component) {
+                        writeComponent(getDataSourceMethod, (Component) value);
+                    }
+                } else {
+                    value = dataSource.getContainerProperty(itemId, columnId)
+                            .getValue();
+                }
+                getDataSourceMethod.addCode("item.getItemProperty("
+                        + formatObjectForJava(columnId) + ").setValue("
+                        + formatObjectForJava(value) + ");");
+
+            }
+
+            if (itemIndex++ > maxItems) {
+                break;
+            }
+        }
+        getDataSourceMethod.addCode("return ic;");
+        javaClassFile.getMainClass().addMethod(getDataSourceMethod);
+        return getDataSourceMethod;
+    }
+
+    private Collection<? extends Object> getGeneratedColumnIds(Table table) {
+        ArrayList<Object> ids = new ArrayList<Object>();
+        for (Object id : table.getVisibleColumns()) {
+            ColumnGenerator generator = table.getColumnGenerator(id);
+            if (generator != null) {
+                ids.add(id);
+            }
+        }
+        return ids;
+
+    }
+
+    private void addContainerProperty(_Method m, Table table,
+            Container.Indexed dataSource, Object propertyId) {
+        m.addCode("ic.addContainerProperty(");
+        m.addCode(formatObjectForJava(propertyId));
+        m.addCode(", ");
+        Class<?> type = dataSource.getType(propertyId);
+        if (type == null) {
+            if (table != null) {
+                ColumnGenerator colGen = table.getColumnGenerator(propertyId);
+                if (colGen != null && table.firstItemId() != null) {
+                    Object gen = colGen.generateCell(table,
+                            table.firstItemId(), propertyId);
+                    if (gen instanceof Component) {
+                        type = Component.class;
+                    }
+                }
+            }
+        }
+        if (type == null) {
+            type = Object.class;
+        }
+        m.addCode(formatObjectForJava(getBoxedType(type)));
+        m.addCode(", null);");
     }
 
 }

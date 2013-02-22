@@ -8,4 +8,17 @@ public class WriterUtil {
         return str.substring(0, 1).toLowerCase() + str.substring(1);
     }
 
+    public static void writeModifiers(StringBuilder code, String[] modifiers) {
+        if (modifiers != null) {
+            for (int i = 0; i < modifiers.length; i++) {
+                if (i != 0)
+                    code.append(" ");
+
+                code.append(modifiers[i]);
+            }
+            code.append(" ");
+        }
+        
+    }
+
 }
