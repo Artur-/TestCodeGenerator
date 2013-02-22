@@ -4,6 +4,7 @@ import java.beans.BeanInfo;
 import java.beans.Introspector;
 import java.beans.PropertyDescriptor;
 import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -19,6 +20,7 @@ import java.util.logging.Logger;
 
 import org.vaadin.artur.testcodegenerator.definition._Annotation;
 import org.vaadin.artur.testcodegenerator.definition._Class;
+import org.vaadin.artur.testcodegenerator.definition._Field;
 import org.vaadin.artur.testcodegenerator.definition._JavaClassFile;
 import org.vaadin.artur.testcodegenerator.definition._Method;
 import org.vaadin.artur.testcodegenerator.definition._Type;
@@ -42,6 +44,7 @@ import com.vaadin.ui.Alignment;
 import com.vaadin.ui.Component;
 import com.vaadin.ui.ComponentContainer;
 import com.vaadin.ui.CustomComponent;
+import com.vaadin.ui.CustomField;
 import com.vaadin.ui.HasComponents;
 import com.vaadin.ui.SingleComponentContainer;
 import com.vaadin.ui.TabSheet;
@@ -87,7 +90,7 @@ public class Writer {
         return javaClassFile.getSource();
     }
 
-    public Class<? extends Component> getVaadinComponentClass(
+    public static Class<? extends Component> getVaadinComponentClass(
             Class<? extends Component> component) {
         if (component.getPackage().getName().startsWith("com.vaadin")) {
             return component;
@@ -121,6 +124,9 @@ public class Writer {
         } else if (parent instanceof CustomComponent) {
             m.addCode(parentReference + ".setCompositionRoot(" + childId + ");");
             return true;
+        } else if (parent instanceof CustomField) {
+            m.addCode(parentReference + ".setContent(" + childId + ");");
+            return true;
         } else if (parent instanceof ComponentContainer) {
             m.addCode(parentReference + ".addComponent(" + childId + ");");
             return true;
@@ -139,6 +145,9 @@ public class Writer {
         if (parent instanceof ComponentContainer) {
             return true;
         }
+        if (parent instanceof CustomField) {
+            return true;
+        }
         if (parent instanceof CustomComponent) {
             return true;
         }
@@ -151,9 +160,14 @@ public class Writer {
 
     public String writeComponent(_Method m, Component c) {
         Class<? extends Component> type = getVaadinComponentClass(c.getClass());
+        if (!canBeInstantiated(c)) {
+            return null;
+        }
         String typeName = formatClassName(type);
         if (c instanceof CustomComponent) {
             typeName = writeCustomComponentClass();
+        } else if (c instanceof CustomField) {
+            typeName = writeCustomFieldClass();
         }
         String cid = javaClassFile.getOrCreateComponentIdentifier(c);
 
@@ -163,6 +177,27 @@ public class Writer {
         writeComponentChildren(m, c);
         writeComponentChildProperties(m, c);
         return cid;
+
+    }
+
+    private boolean canBeInstantiated(Component c) {
+        if (c instanceof CustomComponent || c instanceof CustomField)
+            return true;
+
+        Class<? extends Component> type = c.getClass();
+        try {
+            Constructor<? extends Component> constructor = type
+                    .getConstructor(null);
+            constructor.newInstance(null);
+        } catch (Exception e) {
+            getLogger()
+                    .warning(
+                            "Class "
+                                    + type.getName()
+                                    + " does not have a public no-arg constructor or cannot be instatiated using its constructor. This component will be excluded.");
+            return false;
+        }
+        return true;
 
     }
 
@@ -188,10 +223,11 @@ public class Writer {
     }
 
     private String writeCustomComponentClass() {
-        if (!javaClassFile.getMainClass().hasClass("MyCustomComponent")) {
-            _Class c = new _Class("MyCustomComponent", CustomComponent.class);
+        if (!javaClassFile.getMainClass().hasClass(customComponentClassName)) {
+            _Class c = new _Class(customComponentClassName,
+                    CustomComponent.class);
             c.setModifiers("private", "static");
-            _Method constructor = new _Method("MyCustomComponent");
+            _Method constructor = new _Method(customComponentClassName);
             constructor.setModifiers("public");
             _Method m = new _Method("setCompositionRoot");
             m.addParameter(Component.class, "c");
@@ -203,7 +239,57 @@ public class Writer {
             c.addMethod(m);
             javaClassFile.getMainClass().addClass(c);
         }
-        return "MyCustomComponent";
+        return customComponentClassName;
+    }
+
+    private static final String customComponentClassName = "MyCustomComponent";
+    private static final String customFieldClassName = "MyCustomField";
+
+    private String writeCustomFieldClass() {
+        if (!javaClassFile.getMainClass().hasClass(customFieldClassName)) {
+            _Class c = new _Class(customFieldClassName, CustomField.class);
+            _Field contentField = new _Field(Component.class, "content");
+            contentField.setModifiers("private");
+
+            _Field typeField = new _Field(Class.class, "type");
+            typeField.setModifiers("private");
+
+            c.addField(contentField);
+            c.addField(typeField);
+            c.setModifiers("private", "static");
+            _Method constructor = new _Method(customFieldClassName);
+            constructor.setModifiers("public");
+
+            _Method setContent = new _Method("setContent");
+            setContent.setModifiers("public");
+            setContent.addParameter(Component.class, "content");
+            setContent.setReturnType(Void.class);
+            setContent.addCode("this.content = content;");
+
+            _Method initContent = new _Method("initContent");
+            initContent.setModifiers("protected");
+            initContent.setReturnType(Component.class);
+            initContent.addCode("return this.content;");
+
+            _Method setType = new _Method("setType");
+            setType.setModifiers("public");
+            setType.setReturnType(Void.class);
+            setType.addParameter(Class.class, "type");
+            setType.addCode("this.type = type;");
+
+            _Method getType = new _Method("getType");
+            getType.setModifiers("public");
+            getType.setReturnType(Class.class);
+            getType.addCode("return this.type;");
+
+            c.addMethod(constructor);
+            c.addMethod(setType);
+            c.addMethod(getType);
+            c.addMethod(setContent);
+            c.addMethod(initContent);
+            javaClassFile.getMainClass().addClass(c);
+        }
+        return customFieldClassName;
     }
 
     private void writeComponentChildren(_Method m, Component parent) {
@@ -224,14 +310,14 @@ public class Writer {
         }
         for (Component child : hcParent) {
             String childId = writeComponent(m, child);
-            writeAttachChild(m, hcParent, child, childId);
+            if (childId != null)
+                writeAttachChild(m, hcParent, child, childId);
         }
 
     }
 
     private void writeComponentProperties(_Method m, Component c) {
-        Class<? extends Component> refType = getVaadinComponentClass(c
-                .getClass());
+        Class<? extends Component> refType = getRefType(c);
         try {
             Component ref = refType.newInstance();
             BeanInfo info = Introspector.getBeanInfo(refType);
@@ -263,6 +349,27 @@ public class Writer {
                             + refType.getName(), e);
         }
 
+    }
+
+    public static class ConcreteCustomField extends CustomField {
+
+        @Override
+        protected Component initContent() {
+            return null;
+        }
+
+        @Override
+        public Class getType() {
+            return null;
+        }
+
+    }
+
+    private static Class<? extends Component> getRefType(Component c) {
+        if (c instanceof CustomField) {
+            return ConcreteCustomField.class;
+        }
+        return getVaadinComponentClass(c.getClass());
     }
 
     private PropertyDescriptor[] sort(Component c,

@@ -11,6 +11,7 @@ public class _Class {
     private String name;
     private _Type superType;
     private String[] modifiers;
+    private List<_Field> fields = new ArrayList<_Field>();
     private List<_Method> methods = new ArrayList<_Method>();
     private List<_Class> classes = new ArrayList<_Class>();
 
@@ -40,6 +41,11 @@ public class _Class {
             source.append(" ");
         }
         source.append("{");
+
+        for (_Field f : fields) {
+            f.getSource(source);
+        }
+
         for (_Method m : methods) {
             m.getSource(source);
         }
@@ -77,11 +83,18 @@ public class _Class {
         for (_Class c : this.classes) {
             c.getReferencedClasses(classes);
         }
-        
+
         for (_Method m : this.methods) {
             m.getReferencedClasses(classes);
         }
+        for (_Field f : this.fields) {
+            f.getReferencedClasses(classes);
+        }
 
+    }
+
+    public void addField(_Field field) {
+        fields.add(field);
     }
 
 }

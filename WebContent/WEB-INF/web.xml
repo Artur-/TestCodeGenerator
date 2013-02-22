@@ -33,9 +33,41 @@
 			<param-value>org.vaadin.artur.testcodegenerator.demo.TestTestGeneratorDemo</param-value>
 		</init-param>
 	</servlet>
+	<servlet>
+		<servlet-name>CustomField</servlet-name>
+		<servlet-class>com.vaadin.server.VaadinServlet</servlet-class>
+		<init-param>
+			<param-name>widgetset</param-name>
+			<param-value>org.vaadin.artur.testcodegenerator.TestCodeGeneratorWidgetset</param-value>
+		</init-param>
+		<init-param>
+			<param-name>UI</param-name>
+			<param-value>org.vaadin.artur.testcodegenerator.demo.CustomFieldUI</param-value>
+		</init-param>
+	</servlet>
+	<servlet>
+		<servlet-name>CustomFieldGenerated</servlet-name>
+		<servlet-class>com.vaadin.server.VaadinServlet</servlet-class>
+		<init-param>
+			<param-name>widgetset</param-name>
+			<param-value>org.vaadin.artur.testcodegenerator.TestCodeGeneratorWidgetset</param-value>
+		</init-param>
+		<init-param>
+			<param-name>UI</param-name>
+			<param-value>org.vaadin.artur.testcodegenerator.demo.TestCustomFieldUI</param-value>
+		</init-param>
+	</servlet>
 	<servlet-mapping>
 		<servlet-name>Generated UI</servlet-name>
 		<url-pattern>/generated/*</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>CustomField</servlet-name>
+		<url-pattern>/customfield/*</url-pattern>
+	</servlet-mapping>
+	<servlet-mapping>
+		<servlet-name>CustomFieldGenerated</servlet-name>
+		<url-pattern>/customfieldgen/*</url-pattern>
 	</servlet-mapping>
 	<servlet-mapping>
 		<servlet-name>Testgeneratorextension Application</servlet-name>
