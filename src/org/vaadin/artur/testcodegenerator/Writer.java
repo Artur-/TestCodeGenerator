@@ -850,7 +850,14 @@ public class Writer {
         m.addCode("ic.addContainerProperty(");
         m.addCode(formatObjectForJava(propertyId));
         m.addCode(", ");
-        Class<?> type = dataSource.getType(propertyId);
+        Class<?> type = null;
+        try {
+            type = dataSource.getType(propertyId);
+        } catch (Exception e) {
+            getLogger()
+                    .warning(
+                            "Broken container implementation threw exception for getType. Ignoring.");
+        }
         if (type == null) {
             if (table != null) {
                 ColumnGenerator colGen = table.getColumnGenerator(propertyId);
